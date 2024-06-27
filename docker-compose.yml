@@ -1,0 +1,49 @@
+networks:
+  app_network:
+    driver: bridge
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./:/var/www/app
+      - ./nginx/:/etc/nginx/conf.d/
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    depends_on:
+      - todo
+    networks:
+      - app_network
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
+
+  todo:
+    build:
+      context: ./todo
+      dockerfile: Dockerfile
+    container_name: todo
+    restart: unless-stopped
+    tty: true
+    expose:
+      - "8000"
+    networks:
+      - app_network
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    depends_on:
+      - nginx
+    command: certonly --webroot --webroot-path=/var/www/certbot --force-renewal --email filipegiusep@gmail.com --agree-tos --no-eff-email --staging -d todo.auroraverusschool.org -d www.todo.auroraverusschool.org
+
+volumes:
+  certbot-etc:
+  certbot-var:
